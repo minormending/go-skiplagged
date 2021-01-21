@@ -7,8 +7,7 @@ import (
 	"github.com/minormending/go-skiplagged/models"
 )
 
-// FlightMeetsLeavingCriteria is
-func FlightMeetsLeavingCriteria(flights map[string]clients.Flight, outbound clients.InOutBoundFlight, req *models.Request) (*clients.Flight, error) {
+func flightMeetsLeavingCriteria(flights map[string]clients.Flight, outbound clients.InOutBoundFlight, req *models.Request) (*clients.Flight, error) {
 	flight, err := flightMeetsCriteria(flights, outbound, req)
 	if err != nil {
 		return flight, err
@@ -23,8 +22,7 @@ func FlightMeetsLeavingCriteria(flights map[string]clients.Flight, outbound clie
 	return flight, nil
 }
 
-// FlightMeetsReturningCriteria is
-func FlightMeetsReturningCriteria(flights map[string]clients.Flight, inbound clients.InOutBoundFlight, req *models.Request) (*clients.Flight, error) {
+func flightMeetsReturningCriteria(flights map[string]clients.Flight, inbound clients.InOutBoundFlight, req *models.Request) (*clients.Flight, error) {
 	flight, err := flightMeetsCriteria(flights, inbound, req)
 	if err != nil {
 		return flight, err
