@@ -28,11 +28,11 @@ type criteria struct {
 
 // NewRequest creates a skiplagged API request based on the specified parameters.
 func NewRequest(fromCity, toCity, fromDay, toDay string, travelers int) (*Request, error) {
-	fromTime, err := time.Parse("2006-01-02", fromDay)
+	fromTime, err := time.ParseInLocation("2006-01-02", fromDay, time.Local)
 	if err != nil {
 		return nil, errors.New("fromDay format invalid, should be yyyy-MM-dd")
 	}
-	toTime, err := time.Parse("2006-01-02", toDay)
+	toTime, err := time.ParseInLocation("2006-01-02", toDay, time.Local)
 	if err != nil {
 		return nil, errors.New("toDay format invalid, should be yyyy-MM-dd")
 	}
