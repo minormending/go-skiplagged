@@ -1,8 +1,10 @@
 package main
 
 import (
-	"fmt"
+	"io"
+	"log"
 	"os"
+	"time"
 
 	"github.com/minormending/go-skiplagged/models"
 	"github.com/minormending/go-skiplagged/skiplagged"
@@ -11,7 +13,15 @@ import (
 func main() {
 	os.Setenv("HTTP_PROXY", "http://localhost:8888")
 
-	req, err := models.NewRequest("NYC", "AUS", "2021-02-18", "2021-02-22", 1)
+	logFile, err := os.OpenFile("output.log", os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer logFile.Close()
+	mw := io.MultiWriter(os.Stdout, logFile)
+	log.SetOutput(mw)
+
+	req, err := models.NewRequest("NYC", "", "2021-02-18", "2021-02-22", 1)
 	if err != nil {
 		panic(err)
 	}
@@ -19,17 +29,17 @@ func main() {
 		WithLeavingCriteria(8, 19).
 		WithReturningCriteria(11, 22)
 
-	cities := []skiplagged.CitySummary{}
+	cities := []*skiplagged.CitySummary{}
 	if len(req.TripCity) == 0 {
-		summary, err := skiplagged.GetCitySummaryLeavingCity(req)
+		cities, err = skiplagged.GetCitySummaryLeavingCity(req)
 		if err != nil {
 			panic(err)
 		}
-		for _, city := range summary {
-			fmt.Printf("%s is $%d\n", city.Name, city.MinRoundTripPrice)
+		for _, city := range cities {
+			log.Printf("%s (%s) is $%d\n", city.FullName, city.Name, city.MinRoundTripPrice)
 		}
 	} else {
-		cities = append(cities, skiplagged.CitySummary{
+		cities = append(cities, &skiplagged.CitySummary{
 			Name: req.TripCity,
 		})
 	}
@@ -38,23 +48,31 @@ func main() {
 		req.TripCity = city.Name
 		summary, err := skiplagged.GetFlightSummaryToCity(req)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			continue
 		}
 
+		if len(summary.Leaving) == 0 || len(summary.Returning) == 0 {
+			log.Printf("did not find viable flights to %s (%s)", summary.FullName, summary.Name)
+			continue
+		}
+
+		log.Printf("Found flights to %s with min rountrip $%d", summary.FullName, summary.MinRoundTripPrice)
 		for _, flight := range summary.Leaving {
-			fmt.Printf("%s => %s for $%d (%s) leaving @ %s and arrving @ %s\n",
+			log.Printf("%s => %s (%s) for $%d (%s) leaving @ %s and arrving @ %s\n",
 				flight.Departure.Airport,
+				summary.FullName,
 				flight.Arrival.Airport,
 				flight.Price,
 				flight.Airline,
 				flight.Departure.Time.Format("03:04PM"),
 				flight.Arrival.Time.Format("03:04PM"))
 		}
-		fmt.Printf("min leaving price is $%d\n", summary.MinLeavingPrice)
+		log.Printf("min leaving price is $%d to %s (%s)\n", summary.MinLeavingPrice, summary.FullName, summary.Name)
 
 		for _, flight := range summary.Returning {
-			fmt.Printf("%s => %s for $%d (%s) leaving @ %s and arriving @ %s\n",
+			log.Printf("%s (%s) => %s for $%d (%s) leaving @ %s and arriving @ %s\n",
+				summary.FullName,
 				flight.Departure.Airport,
 				flight.Arrival.Airport,
 				flight.Price,
@@ -62,10 +80,9 @@ func main() {
 				flight.Departure.Time.Format("03:04PM"),
 				flight.Arrival.Time.Format("03:04PM"))
 		}
-		fmt.Printf("min returning price is $%d\n", summary.MinReturningPrice)
+		log.Printf("%s (%s) min returning price is $%d\n", summary.FullName, summary.Name, summary.MinReturningPrice)
 
-		fmt.Printf("min roundtrip price is $%d\n", summary.MinRoundTripPrice)
-		return
+		time.Sleep(time.Second * 2)
 	}
 
 }
