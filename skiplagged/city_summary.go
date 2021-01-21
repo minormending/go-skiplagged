@@ -2,6 +2,7 @@ package skiplagged
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/minormending/go-skiplagged/clients"
@@ -15,8 +16,10 @@ func GetFlightSummaryToCity(req *models.Request) (*CitySummary, error) {
 		return nil, errors.New("unable to get flights to city")
 	}
 
+	city := manifest.Info.To
 	summary := CitySummary{
 		Name:              req.TripCity,
+		FullName:          fmt.Sprintf("%s, %s", city.City, city.State),
 		MinRoundTripPrice: 0,
 		MinLeavingPrice:   0,
 		MinReturningPrice: 0,
@@ -25,7 +28,7 @@ func GetFlightSummaryToCity(req *models.Request) (*CitySummary, error) {
 	}
 
 	for _, outbound := range manifest.Itineraries.Outbound {
-		flight, err := FlightMeetsLeavingCriteria(manifest.Flights, outbound, req)
+		flight, err := flightMeetsLeavingCriteria(manifest.Flights, outbound, req)
 		if err != nil {
 			continue
 		}
@@ -45,9 +48,12 @@ func GetFlightSummaryToCity(req *models.Request) (*CitySummary, error) {
 			Arrival:      leg.Arrival,
 		})
 	}
+	/*sort.Slice(summary.Leaving, func(i, j int) bool {
+		return summary.Leaving[i].Departure.Time.Before(summary.Leaving[j].Departure.Time)
+	})*/
 
 	for _, inbound := range manifest.Itineraries.Inbound {
-		flight, err := FlightMeetsReturningCriteria(manifest.Flights, inbound, req)
+		flight, err := flightMeetsReturningCriteria(manifest.Flights, inbound, req)
 		if err != nil {
 			continue
 		}
@@ -67,6 +73,9 @@ func GetFlightSummaryToCity(req *models.Request) (*CitySummary, error) {
 			Arrival:      leg.Arrival,
 		})
 	}
+	/*sort.Slice(summary.Returning, func(i, j int) bool {
+		return summary.Returning[i].Arrival.Time.Before(summary.Returning[j].Arrival.Time)
+	})*/
 
 	if len(summary.Leaving) > 0 && len(summary.Returning) > 0 {
 		summary.MinRoundTripPrice = summary.MinLeavingPrice + summary.MinReturningPrice
