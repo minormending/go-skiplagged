@@ -5,6 +5,7 @@ import "github.com/minormending/go-skiplagged/models"
 // CitySummary is
 type CitySummary struct {
 	Name              string
+	FullName          string
 	MinRoundTripPrice int
 	MinLeavingPrice   int
 	MinReturningPrice int
