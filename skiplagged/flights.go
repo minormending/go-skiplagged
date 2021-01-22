@@ -19,6 +19,11 @@ func flightMeetsLeavingCriteria(flights map[string]clients.Flight, outbound clie
 	if flight.Segments[0].Departure.Time.After(req.Criteria.Leave.Before) {
 		return nil, fmt.Errorf("leaving home too late in the day @ %s", flight.Segments[0].Departure.Time.Format("03:04PM"))
 	}
+	for _, airport := range req.Criteria.ExcludeAirports {
+		if airport == flight.Segments[0].Departure.Airport {
+			return nil, fmt.Errorf("leaving airport has been excluded @ %s", flight.Segments[0].Departure.Airport)
+		}
+	}
 	return flight, nil
 }
 
@@ -32,6 +37,11 @@ func flightMeetsReturningCriteria(flights map[string]clients.Flight, inbound cli
 	}
 	if flight.Segments[0].Arrival.Time.After(req.Criteria.Return.Before) {
 		return nil, fmt.Errorf("arrival home is too late in the day @ %s", flight.Segments[0].Arrival.Time.Format("03:04PM"))
+	}
+	for _, airport := range req.Criteria.ExcludeAirports {
+		if airport == flight.Segments[0].Arrival.Airport {
+			return nil, fmt.Errorf("arrival airport has been excluded @ %s", flight.Segments[0].Arrival.Airport)
+		}
 	}
 	return flight, nil
 }

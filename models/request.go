@@ -21,9 +21,10 @@ type betweenTime struct {
 }
 
 type criteria struct {
-	MaxPrice int          `json:"max_price"`
-	Leave    *betweenTime `json:"leave_between"`
-	Return   *betweenTime `json:"return_between"`
+	MaxPrice        int          `json:"max_price"`
+	ExcludeAirports []string     `json:"exclude_airports"`
+	Leave           *betweenTime `json:"leave_between"`
+	Return          *betweenTime `json:"return_between"`
 }
 
 // NewRequest creates a skiplagged API request based on the specified parameters.
@@ -67,5 +68,11 @@ func (r *Request) WithReturningCriteria(afterHour, beforeHour int) *Request {
 		After:  r.ReturningDay.Add(time.Hour * time.Duration(afterHour)),
 		Before: r.ReturningDay.Add(time.Hour * time.Duration(beforeHour)),
 	}
+	return r
+}
+
+// WithExcludeAirportsCriteria sets the excluded airports
+func (r *Request) WithExcludeAirportsCriteria(airports []string) *Request {
+	r.Criteria.ExcludeAirports = append(r.Criteria.ExcludeAirports, airports...)
 	return r
 }

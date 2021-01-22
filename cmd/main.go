@@ -4,8 +4,10 @@ import (
 	"io"
 	"log"
 	"os"
+	"sort"
 	"time"
 
+	"github.com/minormending/go-skiplagged/formatters"
 	"github.com/minormending/go-skiplagged/models"
 	"github.com/minormending/go-skiplagged/skiplagged"
 )
@@ -27,7 +29,8 @@ func main() {
 	}
 	req.WithMaxPrice(200).
 		WithLeavingCriteria(8, 19).
-		WithReturningCriteria(11, 22)
+		WithReturningCriteria(11, 22).
+		WithExcludeAirportsCriteria([]string{"EWR"})
 
 	cities := []*skiplagged.CitySummary{}
 	if len(req.TripCity) == 0 {
@@ -44,6 +47,7 @@ func main() {
 		})
 	}
 
+	summaries := []*skiplagged.CitySummary{}
 	for _, city := range cities {
 		req.TripCity = city.Name
 		summary, err := skiplagged.GetFlightSummaryToCity(req)
@@ -82,7 +86,33 @@ func main() {
 		}
 		log.Printf("%s (%s) min returning price is $%d\n", summary.FullName, summary.Name, summary.MinReturningPrice)
 
+		summaries = append(summaries, summary)
 		time.Sleep(time.Second * 2)
 	}
 
+	sort.Slice(summaries, func(i, j int) bool {
+		return summaries[i].MinRoundTripPrice < summaries[j].MinRoundTripPrice
+	})
+
+	jsonfile, _ := os.OpenFile("summary.json", os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer jsonfile.Close()
+
+	err = formatters.ToJSON(jsonfile, summaries)
+	if err != nil {
+		panic(err)
+	}
+
+	markdown, err := os.OpenFile("summary.md", os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer markdown.Close()
+
+	err = formatters.ToMarkdown(markdown, summaries)
+	if err != nil {
+		panic(err)
+	}
 }
