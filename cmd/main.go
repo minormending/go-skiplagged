@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"io/ioutil"
 	"log"
 	"os"
 	"sort"
@@ -29,30 +30,46 @@ var (
 	outputJSON      = flag.String("outjson", "", "save trip results as json with the specified filename.")
 )
 
-func saveJSON(filename string, summaries []*skiplagged.CitySummary) error {
-	jsonfile, err := os.OpenFile("summary.json", os.O_CREATE, 0666)
-	if err != nil {
-		return err
-	}
-	defer jsonfile.Close()
+var (
+	infoLogger  *log.Logger
+	warnLogger  *log.Logger
+	errorLogger *log.Logger
+)
 
-	err = formatters.ToJSON(jsonfile, summaries)
-	if err != nil {
-		return err
+func init() {
+	infoLogger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime)
+	warnLogger = log.New(os.Stderr, "WARN: ", log.Ldate|log.Ltime)
+	infoLogger = log.New(os.Stderr, "ERROR: ", log.Ldate|log.Ltime)
+}
+
+func saveJSON(filename string, summaries []*skiplagged.CitySummary) error {
+	if len(filename) > 0 {
+		jsonfile, err := os.OpenFile("summary.json", os.O_CREATE, 0666)
+		if err != nil {
+			return err
+		}
+		defer jsonfile.Close()
+
+		err = formatters.ToJSON(jsonfile, summaries)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func saveMarkdown(filename string, summaries []*skiplagged.CitySummary) error {
-	markdown, err := os.OpenFile(filename, os.O_CREATE, 0666)
-	if err != nil {
-		return err
-	}
-	defer markdown.Close()
+	if len(filename) > 0 {
+		markdown, err := os.OpenFile(filename, os.O_CREATE, 0666)
+		if err != nil {
+			return err
+		}
+		defer markdown.Close()
 
-	err = formatters.ToMarkdown(markdown, summaries)
-	if err != nil {
-		return err
+		err = formatters.ToMarkdown(markdown, summaries)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -68,7 +85,7 @@ func analyzeCities(req *models.Request, cities []*skiplagged.CitySummary) []*ski
 		}
 
 		if len(summary.Leaving) == 0 || len(summary.Returning) == 0 {
-			log.Printf("did not find viable flights to %s (%s)", summary.FullName, summary.Name)
+			warnLogger.Printf("did not find viable flights to %s (%s)", summary.FullName, summary.Name)
 			continue
 		}
 
@@ -79,6 +96,37 @@ func analyzeCities(req *models.Request, cities []*skiplagged.CitySummary) []*ski
 		return summaries[i].MinRoundTripPrice < summaries[j].MinRoundTripPrice
 	})
 	return summaries
+}
+
+func logCitySummaries(summaries []*skiplagged.CitySummary) {
+	for _, summary := range summaries {
+		infoLogger.Printf("%s (%s) is $%d\n", summary.FullName, summary.Name, summary.MinRoundTripPrice)
+		for _, flight := range summary.Leaving {
+			infoLogger.Printf("%s => %s (%s) for $%d (%s) leaving @ %s and arrving @ %s\n",
+				flight.Departure.Airport,
+				summary.FullName,
+				flight.Arrival.Airport,
+				flight.Price,
+				flight.Airline,
+				flight.Departure.Time.Format("03:04PM"),
+				flight.Arrival.Time.Format("03:04PM"),
+			)
+		}
+		infoLogger.Printf("min leaving price is $%d to %s (%s)\n", summary.MinLeavingPrice, summary.FullName, summary.Name)
+
+		for _, flight := range summary.Returning {
+			infoLogger.Printf("%s (%s) => %s for $%d (%s) leaving @ %s and arriving @ %s\n",
+				summary.FullName,
+				flight.Departure.Airport,
+				flight.Arrival.Airport,
+				flight.Price,
+				flight.Airline,
+				flight.Departure.Time.Format("03:04PM"),
+				flight.Arrival.Time.Format("03:04PM"),
+			)
+		}
+		infoLogger.Printf("%s (%s) min returning price is $%d\n", summary.FullName, summary.Name, summary.MinReturningPrice)
+	}
 }
 
 func main() {
@@ -105,6 +153,10 @@ func main() {
 		WithReturningCriteria(*returnAfter, *returnBefore).
 		WithExcludeAirportsCriteria(strings.Split(*excludeAirports, ","))
 
+	if len(*outputJSON) > 0 || len(*outputMD) > 0 {
+		infoLogger.SetOutput(ioutil.Discard)
+	}
+
 	summaries := []*skiplagged.CitySummary{}
 	if len(*toCity) > 0 {
 		summaries = append(summaries, &skiplagged.CitySummary{Name: *toCity})
@@ -113,26 +165,20 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		for _, city := range summaries {
-			log.Printf("%s (%s) is $%d\n", city.FullName, city.Name, city.MinRoundTripPrice)
-		}
 	}
 
 	if *skipWorldwide == false {
 		summaries = analyzeCities(req, summaries)
 	}
+	logCitySummaries(summaries)
 
-	if len(*outputJSON) > 0 {
-		saveJSON(*outputJSON, summaries)
-		if err != nil {
-			panic(err)
-		}
+	err = saveJSON(*outputJSON, summaries)
+	if err != nil {
+		panic(err)
 	}
 
-	if len(*outputMD) > 0 {
-		saveMarkdown(*outputMD, summaries)
-		if err != nil {
-			panic(err)
-		}
+	err = saveMarkdown(*outputMD, summaries)
+	if err != nil {
+		panic(err)
 	}
 }
