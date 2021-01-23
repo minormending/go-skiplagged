@@ -30,8 +30,5 @@ func ToMarkdown(wr io.Writer, summaries []*skiplagged.CitySummary) error {
 	if err != nil {
 		return err
 	}
-	t.Execute(wr, summaries)
-	/*for _, summary := range summaries {
-	}*/
-	return nil
+	return t.Execute(wr, summaries)
 }

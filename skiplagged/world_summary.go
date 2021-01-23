@@ -23,7 +23,7 @@ func GetCitySummaryLeavingCity(req *models.Request) ([]*CitySummary, error) {
 		}
 		city := manifest.Cities[trip.City]
 		fullName := fmt.Sprintf("%s, %s", city.Name, city.Region)
-		if other, ok := byName[fullName]; ok && other.MinRoundTripPrice > price {
+		if other, ok := byName[fullName]; !ok || other.MinRoundTripPrice > price {
 			byName[fullName] = &CitySummary{
 				Name:              trip.City,
 				FullName:          fullName,
