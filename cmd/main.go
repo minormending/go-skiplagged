@@ -1,10 +1,12 @@
 package main
 
 import (
-	"io"
+	"errors"
+	"flag"
 	"log"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/minormending/go-skiplagged/formatters"
@@ -12,41 +14,50 @@ import (
 	"github.com/minormending/go-skiplagged/skiplagged"
 )
 
-func main() {
-	os.Setenv("HTTP_PROXY", "http://localhost:8888")
+var (
+	proxy           = flag.String("proxy", "", "sets the http proxy for requests")
+	toCity          = flag.String("to", "", "destination city or airport, optional")
+	skipWorldwide   = flag.Bool("skipworldwide", false, "skip compute trips for all cities")
+	travelers       = flag.Int("travelers", 1, "amount of travelers for the trip")
+	maxPrice        = flag.Int("maxPrice", 0, "maximum price for the entire trip")
+	leaveAfter      = flag.Int("leaveAfter", 0, "initial departure flight must be after this hour")
+	leaveBefore     = flag.Int("leaveBefore", 0, "initial departure flight must be before this hour")
+	returnAfter     = flag.Int("returnAfter", 0, "destination return flight must be after this hour")
+	returnBefore    = flag.Int("returnBefore", 0, "destination return flight must be before this hour")
+	excludeAirports = flag.String("exclude", "", "exclude airports from the trip")
+	outputMD        = flag.String("outmd", "", "save trip results as markdown with the specified filename.")
+	outputJSON      = flag.String("outjson", "", "save trip results as json with the specified filename.")
+)
 
-	logFile, err := os.OpenFile("output.log", os.O_RDWR|os.O_CREATE, 0666)
+func saveJSON(filename string, summaries []*skiplagged.CitySummary) error {
+	jsonfile, err := os.OpenFile("summary.json", os.O_CREATE, 0666)
 	if err != nil {
-		log.Fatalf("error opening file: %v", err)
+		return err
 	}
-	defer logFile.Close()
-	mw := io.MultiWriter(os.Stdout, logFile)
-	log.SetOutput(mw)
+	defer jsonfile.Close()
 
-	req, err := models.NewRequest("NYC", "", "2021-02-18", "2021-02-22", 1)
+	err = formatters.ToJSON(jsonfile, summaries)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	req.WithMaxPrice(200).
-		WithLeavingCriteria(8, 19).
-		WithReturningCriteria(11, 22).
-		WithExcludeAirportsCriteria([]string{"EWR"})
+	return nil
+}
 
-	cities := []*skiplagged.CitySummary{}
-	if len(req.TripCity) == 0 {
-		cities, err = skiplagged.GetCitySummaryLeavingCity(req)
-		if err != nil {
-			panic(err)
-		}
-		for _, city := range cities {
-			log.Printf("%s (%s) is $%d\n", city.FullName, city.Name, city.MinRoundTripPrice)
-		}
-	} else {
-		cities = append(cities, &skiplagged.CitySummary{
-			Name: req.TripCity,
-		})
+func saveMarkdown(filename string, summaries []*skiplagged.CitySummary) error {
+	markdown, err := os.OpenFile(filename, os.O_CREATE, 0666)
+	if err != nil {
+		return err
 	}
+	defer markdown.Close()
 
+	err = formatters.ToMarkdown(markdown, summaries)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func analyzeCities(req *models.Request, cities []*skiplagged.CitySummary) []*skiplagged.CitySummary {
 	summaries := []*skiplagged.CitySummary{}
 	for _, city := range cities {
 		req.TripCity = city.Name
@@ -61,58 +72,67 @@ func main() {
 			continue
 		}
 
-		log.Printf("Found flights to %s with min rountrip $%d", summary.FullName, summary.MinRoundTripPrice)
-		for _, flight := range summary.Leaving {
-			log.Printf("%s => %s (%s) for $%d (%s) leaving @ %s and arrving @ %s\n",
-				flight.Departure.Airport,
-				summary.FullName,
-				flight.Arrival.Airport,
-				flight.Price,
-				flight.Airline,
-				flight.Departure.Time.Format("03:04PM"),
-				flight.Arrival.Time.Format("03:04PM"))
-		}
-		log.Printf("min leaving price is $%d to %s (%s)\n", summary.MinLeavingPrice, summary.FullName, summary.Name)
-
-		for _, flight := range summary.Returning {
-			log.Printf("%s (%s) => %s for $%d (%s) leaving @ %s and arriving @ %s\n",
-				summary.FullName,
-				flight.Departure.Airport,
-				flight.Arrival.Airport,
-				flight.Price,
-				flight.Airline,
-				flight.Departure.Time.Format("03:04PM"),
-				flight.Arrival.Time.Format("03:04PM"))
-		}
-		log.Printf("%s (%s) min returning price is $%d\n", summary.FullName, summary.Name, summary.MinReturningPrice)
-
 		summaries = append(summaries, summary)
 		time.Sleep(time.Second * 2)
 	}
-
 	sort.Slice(summaries, func(i, j int) bool {
 		return summaries[i].MinRoundTripPrice < summaries[j].MinRoundTripPrice
 	})
+	return summaries
+}
 
-	jsonfile, _ := os.OpenFile("summary.json", os.O_RDWR|os.O_CREATE, 0666)
+func main() {
+	flag.Parse()
+	fromCity := flag.Arg(0)
+	start := flag.Arg(1)
+	end := flag.Arg(2)
+	if len(fromCity) == 0 {
+		panic(errors.New("must specify a origin city or airport"))
+	} else if len(start) == 0 || len(end) == 0 {
+		panic(errors.New("must specify a start and end date"))
+	}
+
+	if len(*proxy) > 0 {
+		os.Setenv("HTTP_PROXY", *proxy)
+	}
+
+	req, err := models.NewRequest(fromCity, *toCity, start, end, *travelers)
 	if err != nil {
 		panic(err)
 	}
-	defer jsonfile.Close()
+	req.WithMaxPrice(*maxPrice).
+		WithLeavingCriteria(*leaveAfter, *leaveBefore).
+		WithReturningCriteria(*returnAfter, *returnBefore).
+		WithExcludeAirportsCriteria(strings.Split(*excludeAirports, ","))
 
-	err = formatters.ToJSON(jsonfile, summaries)
-	if err != nil {
-		panic(err)
+	summaries := []*skiplagged.CitySummary{}
+	if len(*toCity) > 0 {
+		summaries = append(summaries, &skiplagged.CitySummary{Name: *toCity})
+	} else {
+		summaries, err = skiplagged.GetCitySummaryLeavingCity(req)
+		if err != nil {
+			panic(err)
+		}
+		for _, city := range summaries {
+			log.Printf("%s (%s) is $%d\n", city.FullName, city.Name, city.MinRoundTripPrice)
+		}
 	}
 
-	markdown, err := os.OpenFile("summary.md", os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		panic(err)
+	if *skipWorldwide == false {
+		summaries = analyzeCities(req, summaries)
 	}
-	defer markdown.Close()
 
-	err = formatters.ToMarkdown(markdown, summaries)
-	if err != nil {
-		panic(err)
+	if len(*outputJSON) > 0 {
+		saveJSON(*outputJSON, summaries)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	if len(*outputMD) > 0 {
+		saveMarkdown(*outputMD, summaries)
+		if err != nil {
+			panic(err)
+		}
 	}
 }

@@ -48,9 +48,6 @@ func GetFlightSummaryToCity(req *models.Request) (*CitySummary, error) {
 			Arrival:      leg.Arrival,
 		})
 	}
-	/*sort.Slice(summary.Leaving, func(i, j int) bool {
-		return summary.Leaving[i].Departure.Time.Before(summary.Leaving[j].Departure.Time)
-	})*/
 
 	for _, inbound := range manifest.Itineraries.Inbound {
 		flight, err := flightMeetsReturningCriteria(manifest.Flights, inbound, req)
@@ -73,12 +70,14 @@ func GetFlightSummaryToCity(req *models.Request) (*CitySummary, error) {
 			Arrival:      leg.Arrival,
 		})
 	}
-	/*sort.Slice(summary.Returning, func(i, j int) bool {
-		return summary.Returning[i].Arrival.Time.Before(summary.Returning[j].Arrival.Time)
-	})*/
 
 	if len(summary.Leaving) > 0 && len(summary.Returning) > 0 {
 		summary.MinRoundTripPrice = summary.MinLeavingPrice + summary.MinReturningPrice
+
+		if req.Criteria.MaxPrice > 0 && summary.MinRoundTripPrice > req.Criteria.MaxPrice {
+			summary.Leaving = []*models.Flight{}
+			summary.Returning = []*models.Flight{}
+		}
 	}
 	return &summary, nil
 }

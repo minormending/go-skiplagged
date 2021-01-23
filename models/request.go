@@ -31,11 +31,11 @@ type criteria struct {
 func NewRequest(fromCity, toCity, fromDay, toDay string, travelers int) (*Request, error) {
 	fromTime, err := time.ParseInLocation("2006-01-02", fromDay, time.Local)
 	if err != nil {
-		return nil, errors.New("fromDay format invalid, should be yyyy-MM-dd")
+		return nil, errors.New("starting date format invalid, should be yyyy-MM-dd")
 	}
 	toTime, err := time.ParseInLocation("2006-01-02", toDay, time.Local)
 	if err != nil {
-		return nil, errors.New("toDay format invalid, should be yyyy-MM-dd")
+		return nil, errors.New("ending date format invalid, should be yyyy-MM-dd")
 	}
 	return &Request{
 		HomeCity:     fromCity,
@@ -73,6 +73,10 @@ func (r *Request) WithReturningCriteria(afterHour, beforeHour int) *Request {
 
 // WithExcludeAirportsCriteria sets the excluded airports
 func (r *Request) WithExcludeAirportsCriteria(airports []string) *Request {
-	r.Criteria.ExcludeAirports = append(r.Criteria.ExcludeAirports, airports...)
+	for _, airport := range airports {
+		if len(airport) > 0 {
+			r.Criteria.ExcludeAirports = append(r.Criteria.ExcludeAirports, airport)
+		}
+	}
 	return r
 }
