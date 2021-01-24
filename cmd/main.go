@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -26,6 +27,7 @@ var (
 	excludeAirports = flag.String("exclude", "", "exclude airports from the trip")
 	outputMD        = flag.String("outmd", "", "save trip results as markdown with the specified filename.")
 	outputJSON      = flag.String("outjson", "", "save trip results as json with the specified filename.")
+	help            = flag.Bool("help", false, "print help infomation")
 )
 
 var (
@@ -99,8 +101,27 @@ func logCitySummaries(summaries []*skiplagged.CitySummary) {
 	}
 }
 
+func usage() {
+	fmt.Println(`Usage: skiplagged [OPTIONS] ORIGIN START_DATE END_DATE
+
+Gets flight information from the Skiplagged API.
+
+Arguments:
+	ORIGIN		departure city or airport
+	START_DATE	departure date, yyyy-MM-dd
+	END_DATE	return date, yyyy-MM-dd
+	
+Options:`)
+	flag.PrintDefaults()
+}
+
 func main() {
 	flag.Parse()
+	if *help {
+		usage()
+		return
+	}
+
 	fromCity := flag.Arg(0)
 	start := flag.Arg(1)
 	end := flag.Arg(2)
