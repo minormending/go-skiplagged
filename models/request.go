@@ -55,18 +55,32 @@ func (r *Request) WithMaxPrice(price int) *Request {
 
 // WithLeavingCriteria sets the departure flight criteria from the home city
 func (r *Request) WithLeavingCriteria(afterHour, beforeHour int) *Request {
+	var after, before time.Time
+	if afterHour != 0 {
+		after = r.LeavingDay.Add(time.Hour * time.Duration(afterHour))
+	}
+	if beforeHour != 0 {
+		before = r.LeavingDay.Add(time.Hour * time.Duration(beforeHour))
+	}
 	r.Criteria.Leave = &betweenTime{
-		After:  r.LeavingDay.Add(time.Hour * time.Duration(afterHour)),
-		Before: r.LeavingDay.Add(time.Hour * time.Duration(beforeHour)),
+		After:  after,
+		Before: before,
 	}
 	return r
 }
 
 // WithReturningCriteria sets the departure flight criteria back to the home city
 func (r *Request) WithReturningCriteria(afterHour, beforeHour int) *Request {
+	var after, before time.Time
+	if afterHour != 0 {
+		after = r.ReturningDay.Add(time.Hour * time.Duration(afterHour))
+	}
+	if beforeHour != 0 {
+		before = r.ReturningDay.Add(time.Hour * time.Duration(beforeHour))
+	}
 	r.Criteria.Return = &betweenTime{
-		After:  r.ReturningDay.Add(time.Hour * time.Duration(afterHour)),
-		Before: r.ReturningDay.Add(time.Hour * time.Duration(beforeHour)),
+		After:  after,
+		Before: before,
 	}
 	return r
 }

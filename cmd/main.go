@@ -6,9 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"sort"
 	"strings"
-	"time"
 
 	"github.com/minormending/go-skiplagged/formatters"
 	"github.com/minormending/go-skiplagged/models"
@@ -31,20 +29,16 @@ var (
 )
 
 var (
-	infoLogger  *log.Logger
-	warnLogger  *log.Logger
-	errorLogger *log.Logger
+	infoLogger *log.Logger
 )
 
 func init() {
 	infoLogger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime)
-	warnLogger = log.New(os.Stderr, "WARN: ", log.Ldate|log.Ltime)
-	infoLogger = log.New(os.Stderr, "ERROR: ", log.Ldate|log.Ltime)
 }
 
 func saveJSON(filename string, summaries []*skiplagged.CitySummary) error {
 	if len(filename) > 0 {
-		jsonfile, err := os.OpenFile("summary.json", os.O_CREATE, 0666)
+		jsonfile, err := os.OpenFile("summary.json", os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			return err
 		}
@@ -60,7 +54,7 @@ func saveJSON(filename string, summaries []*skiplagged.CitySummary) error {
 
 func saveMarkdown(filename string, summaries []*skiplagged.CitySummary) error {
 	if len(filename) > 0 {
-		markdown, err := os.OpenFile(filename, os.O_CREATE, 0666)
+		markdown, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			return err
 		}
@@ -72,30 +66,6 @@ func saveMarkdown(filename string, summaries []*skiplagged.CitySummary) error {
 		}
 	}
 	return nil
-}
-
-func analyzeCities(req *models.Request, cities []*skiplagged.CitySummary) []*skiplagged.CitySummary {
-	summaries := []*skiplagged.CitySummary{}
-	for _, city := range cities {
-		req.TripCity = city.Name
-		summary, err := skiplagged.GetFlightSummaryToCity(req)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-
-		if len(summary.Leaving) == 0 || len(summary.Returning) == 0 {
-			warnLogger.Printf("did not find viable flights to %s (%s)", summary.FullName, summary.Name)
-			continue
-		}
-
-		summaries = append(summaries, summary)
-		time.Sleep(time.Second * 2)
-	}
-	sort.Slice(summaries, func(i, j int) bool {
-		return summaries[i].MinRoundTripPrice < summaries[j].MinRoundTripPrice
-	})
-	return summaries
 }
 
 func logCitySummaries(summaries []*skiplagged.CitySummary) {
@@ -143,6 +113,9 @@ func main() {
 	if len(*proxy) > 0 {
 		os.Setenv("HTTP_PROXY", *proxy)
 	}
+	if len(*outputJSON) > 0 || len(*outputMD) > 0 {
+		infoLogger.SetOutput(ioutil.Discard)
+	}
 
 	req, err := models.NewRequest(fromCity, *toCity, start, end, *travelers)
 	if err != nil {
@@ -152,10 +125,6 @@ func main() {
 		WithLeavingCriteria(*leaveAfter, *leaveBefore).
 		WithReturningCriteria(*returnAfter, *returnBefore).
 		WithExcludeAirportsCriteria(strings.Split(*excludeAirports, ","))
-
-	if len(*outputJSON) > 0 || len(*outputMD) > 0 {
-		infoLogger.SetOutput(ioutil.Discard)
-	}
 
 	summaries := []*skiplagged.CitySummary{}
 	if len(*toCity) > 0 {
@@ -168,7 +137,7 @@ func main() {
 	}
 
 	if *skipWorldwide == false {
-		summaries = analyzeCities(req, summaries)
+		summaries = skiplagged.GetAllFlightSummariesToCity(req, summaries)
 	}
 	logCitySummaries(summaries)
 

@@ -3,6 +3,9 @@ package skiplagged
 import (
 	"errors"
 	"fmt"
+	"log"
+	"sort"
+	"time"
 
 	"github.com/minormending/go-skiplagged/clients"
 	"github.com/minormending/go-skiplagged/models"
@@ -37,4 +40,27 @@ func GetCitySummaryLeavingCity(req *models.Request) ([]*CitySummary, error) {
 		summaries = append(summaries, summary)
 	}
 	return summaries, nil
+}
+
+// GetAllFlightSummariesToCity gets all the flitered flight summaries to cities provided
+func GetAllFlightSummariesToCity(req *models.Request, cities []*CitySummary) []*CitySummary {
+	summaries := []*CitySummary{}
+	for _, city := range cities {
+		req.TripCity = city.Name
+		summary, err := GetFlightSummaryToCity(req)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		if len(summary.Leaving) == 0 || len(summary.Returning) == 0 {
+			continue
+		}
+		summaries = append(summaries, summary)
+		time.Sleep(time.Second * 2)
+	}
+	sort.Slice(summaries, func(i, j int) bool {
+		return summaries[i].MinRoundTripPrice < summaries[j].MinRoundTripPrice
+	})
+	return summaries
 }

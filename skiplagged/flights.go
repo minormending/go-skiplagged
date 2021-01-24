@@ -13,10 +13,10 @@ func flightMeetsLeavingCriteria(flights map[string]clients.Flight, outbound clie
 		return flight, err
 	}
 
-	if flight.Segments[0].Departure.Time.Before(req.Criteria.Leave.After) {
+	if !req.Criteria.Leave.After.IsZero() && flight.Segments[0].Departure.Time.Before(req.Criteria.Leave.After) {
 		return nil, fmt.Errorf("leaving home too early in the day @ %s", flight.Segments[0].Departure.Time.Format("03:04PM"))
 	}
-	if flight.Segments[0].Departure.Time.After(req.Criteria.Leave.Before) {
+	if !req.Criteria.Leave.Before.IsZero() && flight.Segments[0].Departure.Time.After(req.Criteria.Leave.Before) {
 		return nil, fmt.Errorf("leaving home too late in the day @ %s", flight.Segments[0].Departure.Time.Format("03:04PM"))
 	}
 	for _, airport := range req.Criteria.ExcludeAirports {
@@ -32,10 +32,10 @@ func flightMeetsReturningCriteria(flights map[string]clients.Flight, inbound cli
 	if err != nil {
 		return flight, err
 	}
-	if flight.Segments[0].Arrival.Time.Before(req.Criteria.Return.After) {
+	if !req.Criteria.Return.After.IsZero() && flight.Segments[0].Arrival.Time.Before(req.Criteria.Return.After) {
 		return nil, fmt.Errorf("arrival home is too early in the day @ %s", flight.Segments[0].Arrival.Time.Format("03:04PM"))
 	}
-	if flight.Segments[0].Arrival.Time.After(req.Criteria.Return.Before) {
+	if !req.Criteria.Return.After.IsZero() && flight.Segments[0].Arrival.Time.After(req.Criteria.Return.Before) {
 		return nil, fmt.Errorf("arrival home is too late in the day @ %s", flight.Segments[0].Arrival.Time.Format("03:04PM"))
 	}
 	for _, airport := range req.Criteria.ExcludeAirports {
