@@ -39,7 +39,7 @@ func init() {
 	infoLogger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime)
 }
 
-func saveJSON(summaries []*skiplagged.CitySummary) error {
+func saveJSON(req *models.Request, summaries []*skiplagged.CitySummary) error {
 	if len(*outputJSON) > 0 {
 		jsonfile, err := os.OpenFile(*outputJSON, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
 		if err != nil {
@@ -48,13 +48,13 @@ func saveJSON(summaries []*skiplagged.CitySummary) error {
 				if err != nil {
 					return err
 				}
-				return saveJSON(summaries)
+				return saveJSON(req, summaries)
 			}
 			return err
 		}
 		defer jsonfile.Close()
 
-		err = formatters.ToJSON(jsonfile, summaries)
+		err = formatters.ToJSON(jsonfile, req, summaries)
 		if err != nil {
 			return err
 		}
@@ -177,7 +177,7 @@ func main() {
 	}
 	logCitySummaries(summaries)
 
-	err = saveJSON(summaries)
+	err = saveJSON(req, summaries)
 	if err != nil {
 		panic(err)
 	}
