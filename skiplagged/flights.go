@@ -35,7 +35,7 @@ func flightMeetsReturningCriteria(flights map[string]clients.Flight, inbound cli
 	if !req.Criteria.Return.After.IsZero() && flight.Segments[0].Arrival.Time.Before(req.Criteria.Return.After) {
 		return nil, fmt.Errorf("arrival home is too early in the day @ %s", flight.Segments[0].Arrival.Time.Format("03:04PM"))
 	}
-	if !req.Criteria.Return.After.IsZero() && flight.Segments[0].Arrival.Time.After(req.Criteria.Return.Before) {
+	if !req.Criteria.Return.Before.IsZero() && flight.Segments[0].Arrival.Time.After(req.Criteria.Return.Before) {
 		return nil, fmt.Errorf("arrival home is too late in the day @ %s", flight.Segments[0].Arrival.Time.Format("03:04PM"))
 	}
 	for _, airport := range req.Criteria.ExcludeAirports {
@@ -49,8 +49,8 @@ func flightMeetsReturningCriteria(flights map[string]clients.Flight, inbound cli
 func flightMeetsCriteria(flights map[string]clients.Flight, bound clients.InOutBoundFlight, req *models.Request) (*clients.Flight, error) {
 	if req.Criteria.MaxPrice > 0 {
 		flightPrice := bound.OneWayPrice / 100.0
-		roundTripPrice := bound.MinRoundTripPrice / 100
-		if flightPrice > req.Criteria.MaxPrice {
+		roundTripPrice := bound.MinRoundTripPrice / 100.0
+		if flightPrice == 0 || flightPrice > req.Criteria.MaxPrice {
 			return nil, fmt.Errorf("flight price too expensive @ %d", flightPrice)
 		} else if roundTripPrice > req.Criteria.MaxPrice {
 			return nil, fmt.Errorf("roundtrip price too expensive @ %d", roundTripPrice)

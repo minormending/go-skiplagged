@@ -27,6 +27,7 @@ var (
 	excludeAirports = flag.String("exclude", "", "exclude airports from the trip")
 	outputMD        = flag.String("outmd", "", "save trip results as markdown with the specified filename.")
 	outputJSON      = flag.String("outjson", "", "save trip results as json with the specified filename.")
+	overwrite       = flag.Bool("overwrite", false, "overwrite existing output file.")
 	help            = flag.Bool("help", false, "print help infomation")
 )
 
@@ -38,10 +39,17 @@ func init() {
 	infoLogger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime)
 }
 
-func saveJSON(filename string, summaries []*skiplagged.CitySummary) error {
-	if len(filename) > 0 {
-		jsonfile, err := os.OpenFile("summary.json", os.O_WRONLY|os.O_CREATE, 0666)
+func saveJSON(summaries []*skiplagged.CitySummary) error {
+	if len(*outputJSON) > 0 {
+		jsonfile, err := os.OpenFile(*outputJSON, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
 		if err != nil {
+			if strings.Contains(err.Error(), "file exists") && *overwrite {
+				err = os.Remove(*outputJSON)
+				if err != nil {
+					return err
+				}
+				return saveJSON(summaries)
+			}
 			return err
 		}
 		defer jsonfile.Close()
@@ -54,10 +62,17 @@ func saveJSON(filename string, summaries []*skiplagged.CitySummary) error {
 	return nil
 }
 
-func saveMarkdown(filename string, summaries []*skiplagged.CitySummary) error {
-	if len(filename) > 0 {
-		markdown, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0666)
+func saveMarkdown(summaries []*skiplagged.CitySummary) error {
+	if len(*outputMD) > 0 {
+		markdown, err := os.OpenFile(*outputMD, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
 		if err != nil {
+			if strings.Contains(err.Error(), "file exists") && *overwrite {
+				err = os.Remove(*outputMD)
+				if err != nil {
+					return err
+				}
+				return saveMarkdown(summaries)
+			}
 			return err
 		}
 		defer markdown.Close()
@@ -110,7 +125,7 @@ Arguments:
 	ORIGIN		departure city or airport
 	START_DATE	departure date, yyyy-MM-dd
 	END_DATE	return date, yyyy-MM-dd
-	
+
 Options:`)
 	flag.PrintDefaults()
 }
@@ -162,12 +177,12 @@ func main() {
 	}
 	logCitySummaries(summaries)
 
-	err = saveJSON(*outputJSON, summaries)
+	err = saveJSON(summaries)
 	if err != nil {
 		panic(err)
 	}
 
-	err = saveMarkdown(*outputMD, summaries)
+	err = saveMarkdown(summaries)
 	if err != nil {
 		panic(err)
 	}
