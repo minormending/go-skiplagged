@@ -71,4 +71,4 @@ Austin, Texas (AUS) min returning price is $48
 This find all flights costing less than $200 from any airport in New York City (NYC) to the airport AUS in Austin, TX departing NYC on March 4th before 1pm and returning to NYC between 12pm and 7pm on March 8th.
 
 The results are printed to the console, but we can easily generate a markdown file with the `--outmd=summary.md` option.
-
+![image](https://user-images.githubusercontent.com/54426030/105773491-f8f87200-5f31-11eb-9443-1f6eb8633ef1.png)
