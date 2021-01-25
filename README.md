@@ -35,6 +35,9 @@ Options:
         save trip results as json with the specified filename.
   -outmd string
         save trip results as markdown with the specified filename.
+  -overwrite
+        overwrite existing output file.
+  -proxy
         sets the http proxy for requests
   -returnAfter int
         destination return flight must be after this hour
